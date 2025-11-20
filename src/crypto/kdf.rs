@@ -5,7 +5,7 @@ use zeroize::Zeroize;
 
 use crate::crypto::{
     buffers,
-    consts::{KDF_SALT_FOOTER_1, KDF_SALT_FOOTER_2},
+    consts::{KDF_PADDING_1, KDF_PADDING_2},
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -24,13 +24,13 @@ pub enum OperationError {
 
 #[derive(Serialize, Default)]
 #[repr(C)]
-struct KdfSaltHeaderTemplate {
+struct KdfHeaderTemplate {
     salt_size: u64,    // 8
     subkey_index: u64, // 8
     salt_used: bool,   // 1
     subkey_used: bool, // 1
-    footer: [u8; 32],
-    footer2: [u8; 14],
+    padding_1: [u8; 32],
+    padding_2: [u8; 14],
 }
 
 /// input: 64 bytes
@@ -46,13 +46,13 @@ pub fn kdf_extract(
     let bincode_cfg = bincode::config::legacy().with_limit::<64>();
     let mut t = match salt {
         Some(b) => {
-            let template = KdfSaltHeaderTemplate {
+            let template = KdfHeaderTemplate {
                 salt_size: b.len() as u64,
                 subkey_index: subkey_index.unwrap_or_default(),
                 salt_used: true,
                 subkey_used: subkey_index.is_some(),
-                footer: *KDF_SALT_FOOTER_1,
-                footer2: *KDF_SALT_FOOTER_2,
+                padding_1: *KDF_PADDING_1,
+                padding_2: *KDF_PADDING_2,
             };
             let mut template_dst = SecretVec::zero(64);
             let _ = bincode::serde::encode_into_slice(
@@ -65,13 +65,13 @@ pub fn kdf_extract(
             s.finalize()
         }
         None => {
-            let template = KdfSaltHeaderTemplate {
+            let template = KdfHeaderTemplate {
                 salt_size: 0,
                 subkey_index: subkey_index.unwrap_or_default(),
                 salt_used: false,
                 subkey_used: subkey_index.is_some(),
-                footer: *KDF_SALT_FOOTER_1,
-                footer2: *KDF_SALT_FOOTER_2,
+                padding_1: *KDF_PADDING_1,
+                padding_2: *KDF_PADDING_2,
             };
             let mut template_dst = SecretVec::zero(64);
             let _ = bincode::serde::encode_into_slice(
@@ -98,8 +98,8 @@ pub fn kdf_expand() {}
 mod test {
     #[test]
     fn test_bincode() {
-        use crate::crypto::kdf::KdfSaltHeaderTemplate;
-        let template = KdfSaltHeaderTemplate::default();
+        use crate::crypto::kdf::KdfHeaderTemplate;
+        let template = KdfHeaderTemplate::default();
         let mut template_dst = vec![0u8; 64];
         let bincode_cfg = bincode::config::legacy().with_limit::<64>();
         let b =
