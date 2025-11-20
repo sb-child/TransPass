@@ -129,6 +129,17 @@ impl From<SecretVec<u8>> for CryptoBuffer {
     }
 }
 
+impl From<Vec<u8>> for CryptoBuffer {
+    fn from(value: Vec<u8>) -> Self {
+        let mut sv = SecretVec::zero(value.len());
+        sv.borrow_mut().copy_from_slice(&value);
+        Self {
+            inner: sv,
+            permlock: PermLock::default(),
+        }
+    }
+}
+
 impl CryptoBuffer {
     pub fn new(size: usize) -> Self {
         let v = SecretVec::zero(size);
@@ -158,7 +169,7 @@ impl CryptoBuffer {
         if !self.permlock.get_permission().writeable(private) {
             return Err(OperationError::PermissionDenied);
         };
-        if buf.len() != 0 && self.len() != 0 {
+        if buf.len() == 0 || self.len() == 0 {
             return Err(OperationError::EmptyBuffer);
         }
         if self.len() != buf.len() {
@@ -173,7 +184,7 @@ impl CryptoBuffer {
         if !self.permlock.get_permission().readable(private) {
             return Err(OperationError::PermissionDenied);
         };
-        if buf.len() != 0 && self.len() != 0 {
+        if buf.len() == 0 || self.len() == 0 {
             return Err(OperationError::EmptyBuffer);
         }
         if self.len() != buf.len() {
@@ -193,7 +204,7 @@ impl CryptoBuffer {
         if !self.permlock.get_permission().readwriteable(private) {
             return Err(OperationError::PermissionDenied);
         };
-        if self.len() != 0 {
+        if self.len() == 0 {
             return Err(OperationError::EmptyBuffer);
         }
         let mut v = self.inner.borrow_mut();
@@ -204,7 +215,7 @@ impl CryptoBuffer {
         if !self.permlock.get_permission().readable(private) {
             return Err(OperationError::PermissionDenied);
         };
-        if self.len() != 0 {
+        if self.len() == 0 {
             return Err(OperationError::EmptyBuffer);
         }
         let v = self.inner.borrow();
@@ -219,7 +230,7 @@ impl CryptoBuffer {
         if !self.permlock.get_permission().writeable(private) {
             return Err(OperationError::PermissionDenied);
         };
-        if self.len() != 0 {
+        if self.len() == 0 {
             return Err(OperationError::EmptyBuffer);
         }
         let mut v = SecretVec::zero(self.len());

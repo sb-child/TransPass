@@ -35,7 +35,7 @@ struct KdfHeaderTemplate {
 
 /// input: 64 bytes
 /// output: 64 bytes
-pub fn kdf_extract(
+pub fn extract(
     input: &buffers::CryptoBuffer,
     salt: Option<&buffers::CryptoBuffer>,
     subkey_index: Option<u64>,
@@ -55,11 +55,12 @@ pub fn kdf_extract(
                 padding_2: *KDF_PADDING_2,
             };
             let mut template_dst = SecretVec::zero(64);
-            let _ = bincode::serde::encode_into_slice(
+            let size = bincode::serde::encode_into_slice(
                 template,
                 &mut template_dst.borrow_mut(),
                 bincode_cfg,
             )?;
+            assert_eq!(size, 64);
             let mut s = blake2b::State::new(Some(&template_dst.borrow()), 64)?;
             b.private_read(|x| s.update(x))?;
             s.finalize()
@@ -74,11 +75,12 @@ pub fn kdf_extract(
                 padding_2: *KDF_PADDING_2,
             };
             let mut template_dst = SecretVec::zero(64);
-            let _ = bincode::serde::encode_into_slice(
+            let size = bincode::serde::encode_into_slice(
                 template,
                 &mut template_dst.borrow_mut(),
                 bincode_cfg,
             )?;
+            assert_eq!(size, 64);
             let mut s = blake2b::State::new(Some(&template_dst.borrow()), 64)?;
             s.finalize()
         }
@@ -93,7 +95,7 @@ pub fn kdf_extract(
     Ok(o.into())
 }
 
-pub fn kdf_expand() {}
+// pub fn expand() {}
 
 mod test {
     #[test]
@@ -106,5 +108,105 @@ mod test {
             bincode::serde::encode_into_slice(template, &mut template_dst, bincode_cfg).unwrap();
         assert_eq!(b, 64);
         assert_eq!(template_dst, [0u8; 64]);
+    }
+
+    #[test]
+    fn test_kdf_extract() {
+        use crate::crypto::buffers::CryptoBuffer;
+        use crate::crypto::kdf::extract;
+        // use crate::crypto::rng::local_random;
+
+        let test_input = "a58496cce3191895885498b6b67ca41c0c2bf963c9751e2ef6d52b3d9a5dd8756e1f0f0455cb4525a9b00f5fbdb5c1a66b58fe34133e27778bc117a55b123dee";
+        let test_salt = "acb086a1a1c4e25c9d175458c604991fbb49033e507d9c1a15784e93303ea2ea";
+
+        let test_out = "12f7c397536785e3a94a437a6475b813e4c29acc396b8485e8c5087d12665a68843ee35efde39d36c2ed8d78ae1f6d9f4a375a2cd8ce7c96d03d27e67153decd";
+        let test_out_0 = "e74b3d52c008b7afe3a6ffa1b3bce788c23bb8b70f09b3b8e029866ddd9a7e0f624d3a71c43a604160760d1fcb3b6d9f8e8e76a113108c82dffa2dbb7123ef6c";
+        let test_out_1 = "8e22676173b1ba821f157395ec798cc691f97350ce59db2fdc840f312cb6c56ae0412ce09baad8a01a8e11c84b7be83c9ec5afdf19b4a958cb985f3646e30064";
+        let test_out_2 = "e6c5a7aef9dea6cc5a82f038460b4cd7e93840163a49d2f0b8538fba18a569061b6e2dd8be8ae573877481ce6a073041cc96c4e08084d79fa83bbf85c0e27da8";
+        let test_outws = "52b8951922d9d372f5a4ed53b66a4d77c99b98b961addb1c71b3eb979cf24c8d08ebaa5fe49d080a56bde2a19736391f8ee559c5e1db58e4fd798e3434a13e59";
+        let test_outws_0 = "5c0026fc36cdb45ca074fc2f20cc0234e56edf9db40d6adaa767305317fada245b309dfb3e3342a81881f42843f17492a13e781559bb35816407f4cdd26f48bd";
+        let test_outws_1 = "fb289a23f3542f31c48f3f6afc0a65e6376b1efd4a093d76f18f99c093ca571f1c93802655905acc9c0bb434b3ad94a50bc34f3895cbda9cc36e0c819b8c36ed";
+        let test_outws_2 = "b225651ef7f41e0e0a5e7d631910cbde49b6cb8433d4f60b1a88ef6c7d74e73d8e0b0d67af59df670055aa1d8c357ccdae752b1ddd70805ce7297bf94f5943e2";
+
+        let mut input_buf = CryptoBuffer::new(64);
+        let mut salt_buf = CryptoBuffer::new(32);
+        input_buf
+            .write(|x| hex::decode_to_slice(test_input, x).unwrap())
+            .unwrap();
+        salt_buf
+            .write(|x| hex::decode_to_slice(test_salt, x).unwrap())
+            .unwrap();
+        // local_random(&mut input_buf).unwrap();
+        // local_random(&mut salt_buf).unwrap();
+        // input_buf
+        //     .read(|x| println!("input: {}", hex::encode(x)))
+        //     .unwrap();
+        // salt_buf
+        //     .read(|x| println!("salt: {}", hex::encode(x)))
+        //     .unwrap();
+
+        let out_buf = extract(&input_buf, Some(&salt_buf), None).unwrap();
+        out_buf
+            .read(|x| assert_eq!(hex::encode(x), test_out))
+            .unwrap();
+        // out_buf
+        //     .read(|x| println!("out: {}", hex::encode(x)))
+        //     .unwrap();
+
+        let out_buf = extract(&input_buf, Some(&salt_buf), Some(0)).unwrap();
+        out_buf
+            .read(|x| assert_eq!(hex::encode(x), test_out_0))
+            .unwrap();
+        // out_buf
+        //     .read(|x| println!("out(0): {}", hex::encode(x)))
+        //     .unwrap();
+
+        let out_buf = extract(&input_buf, Some(&salt_buf), Some(1)).unwrap();
+        out_buf
+            .read(|x| assert_eq!(hex::encode(x), test_out_1))
+            .unwrap();
+        // out_buf
+        //     .read(|x| println!("out(1): {}", hex::encode(x)))
+        //     .unwrap();
+
+        let out_buf = extract(&input_buf, Some(&salt_buf), Some(2)).unwrap();
+        out_buf
+            .read(|x| assert_eq!(hex::encode(x), test_out_2))
+            .unwrap();
+        // out_buf
+        //     .read(|x| println!("out(2): {}", hex::encode(x)))
+        //     .unwrap();
+
+        let out_buf = extract(&input_buf, None, None).unwrap();
+        out_buf
+            .read(|x| assert_eq!(hex::encode(x), test_outws))
+            .unwrap();
+        // out_buf
+        //     .read(|x| println!("out, without salt: {}", hex::encode(x)))
+        //     .unwrap();
+
+        let out_buf = extract(&input_buf, None, Some(0)).unwrap();
+        out_buf
+            .read(|x| assert_eq!(hex::encode(x), test_outws_0))
+            .unwrap();
+        // out_buf
+        //     .read(|x| println!("out(0), without salt: {}", hex::encode(x)))
+        //     .unwrap();
+
+        let out_buf = extract(&input_buf, None, Some(1)).unwrap();
+        out_buf
+            .read(|x| assert_eq!(hex::encode(x), test_outws_1))
+            .unwrap();
+        // out_buf
+        //     .read(|x| println!("out(1), without salt: {}", hex::encode(x)))
+        //     .unwrap();
+
+        let out_buf = extract(&input_buf, None, Some(2)).unwrap();
+        out_buf
+            .read(|x| assert_eq!(hex::encode(x), test_outws_2))
+            .unwrap();
+        // out_buf
+        //     .read(|x| println!("out(2), without salt: {}", hex::encode(x)))
+        //     .unwrap();
     }
 }
