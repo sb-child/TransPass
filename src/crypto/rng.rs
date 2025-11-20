@@ -108,7 +108,7 @@ pub fn from_file<P: AsRef<Path>>(
             }
         }
     }
-    buf.copy_from_slice(&s.finalize())?;
+    buf.private_copy_from_slice(&s.finalize())?;
     Ok(())
 }
 
