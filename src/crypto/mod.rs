@@ -1,4 +1,4 @@
-pub mod buffers;
+pub mod buffer;
 pub mod consts;
 pub mod kdf;
 pub mod rng;
